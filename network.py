@@ -78,6 +78,15 @@ def generate_grid(x, offset):
     return offsets
 
 
+class wrapper(nn.Module):
+    def __init__(self):
+        super(Registration_Net, self).__init__()
+        self.network = Registration_Net()
+    
+    def forward(self, x):
+        self.network(x=x[0], x_pred=x[1], x_img=x[0])
+
+
 class Registration_Net(nn.Module):
     """Deformable registration network with input from image space """
     def __init__(self, n_ch=1):

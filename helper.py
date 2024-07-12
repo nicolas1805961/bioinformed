@@ -42,15 +42,25 @@ def compute_strain(x):
     return strain_tensor
 
 def centre_crop(img, size, centre):
-    img_new = np.zeros((img.shape[0],size,size))
-    h1 = np.amin([size//2, centre[0]])
-    h2 = np.amin([size//2, img.shape[1]-centre[0]])
-    w1 = np.amin([size//2, centre[1]])
-    w2 = np.amin([size//2, img.shape[2]-centre[1]])
-    # print(centre[1]-w1)
-    # print(centre[1]+w2)
-    img_new[:,size//2-h1:size//2+h2,size//2-w1:size//2+w2] = img[:,centre[0]-h1:centre[0]+h2,centre[1]-w1:centre[1]+w2]
-    return img_new
+    h1 = max(0, centre[0] - size//2)
+    h2 = min(centre[0] + size//2, img.shape[1])
+    x1 = max(0, centre[1] - size//2)
+    x2 = min(centre[1] + size//2, img.shape[2])
+
+    cropped = img[:, h1:h2, x1:x2]
+
+    to_crop_data = (0, size, 0, size)
+    to_pad_data = (x1, max(0, img.shape[2] - x2), h1, max(0, img.shape[1] - h2))
+
+    if list(cropped.shape[1:]) != [size, size]:
+        pad_top = max(0, size//2 - (centre[0]))
+        pad_bottom = max(0, size//2 - (img.shape[1] - centre[0]))
+        pad_left = max(0, size//2 - (centre[1]))
+        pad_right = max(0, size//2 - (img.shape[2] - centre[1]))
+        cropped = np.pad(cropped, pad_width=((0, 0), (pad_top, pad_bottom), (pad_left, pad_right)))
+        to_crop_data = (pad_top, size - pad_bottom, pad_left, size - pad_right)
+
+    return cropped, to_crop_data, to_pad_data
 
 
 def func_loadTestResults(model_name):

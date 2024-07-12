@@ -1,6 +1,7 @@
 # %%
 import SimpleITK as sitk
-from SimpleITK.SimpleITK import Elastix
+#from SimpleITK.SimpleITK import Elastix
+#from SimpleITK import Elastix
 from scipy.io import loadmat, savemat
 from visualize import func_findParentPath
 import os

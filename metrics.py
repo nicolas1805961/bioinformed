@@ -59,7 +59,7 @@ def func_computeImgMetrics(fix, moved):
     # plt.imshow(moved,cmap='gray')
     # plt.show()
 
-    ssim_index = ssim(fix, moved)
+    ssim_index = ssim(fix, moved, data_range=moved.max() - moved.min())
     mse_index = mse(fix, moved)
 
     return ssim_index, mse_index
