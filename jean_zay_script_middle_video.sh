@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --array=1,   # Number of configuration files
+#SBATCH --array=1-4   # Number of configuration files
 #SBATCH --job-name=gpu_mono          # nom du job
 #SBATCH -C v100-16g                  # reserver des GPU 16 Go seulement
 ##SBATCH --partition=gpu_p2          # de-commente pour la partition gpu_p2

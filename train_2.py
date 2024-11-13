@@ -428,7 +428,7 @@ if __name__ == "__main__":
     #parser.add_argument('--dataset', required=True, type=str, help='(ACDC17 or Lib) which dataset to run')
     parser.add_argument('--config', required=True, help='config file')
     parser.add_argument('--bs', default=8, type=int, help='batch size')
-    parser.add_argument('--epoch', default=110, type=int, help='number of epochs')
+    parser.add_argument('--epoch', default=180, type=int, help='number of epochs')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate')
     parser.add_argument('--lmbd', default=0.05, type=float, help='regularization parameter for reg loss')
     parser.add_argument('--nup', default=0.4, type=float, help='poisson ratio for 2D material property')
@@ -443,6 +443,8 @@ if __name__ == "__main__":
 
     config = read_config_video(args.config)
     args.epoch = config['epoch']
+    gamma = config['seg_weight']
+    lmbd = config['regu_weight']
 
     print('Training configuration', args)
     #if args.dataset == 'ACDC17':
@@ -458,14 +460,16 @@ if __name__ == "__main__":
     #linux path
     folder_with_preprocessed_data = os.path.join(os.path.dirname(os.getcwd()), 'Isensee_unlabeled/nnunet/out/nnUNet_preprocessed/Task032_Lib/custom_experiment_planner_stage0')
     data_path = os.path.join(os.path.dirname(os.getcwd()), 'Isensee_unlabeled/nnunet/Lib_resampling_training_mask')
+    pkl_path= os.path.join(os.path.dirname(os.getcwd()), 'Isensee_unlabeled/nnunet/custom_lib_t_4')
+    splits_file = os.path.join('splits/Lib/val/splits_final.pkl')
+
     #local path
     #folder_with_preprocessed_data = r'C:\Users\Portal\Documents\Isensee\nnUNet\nnunet\out\nnUNet_preprocessed\Task032_Lib\custom_experiment_planner_stage0'
     #data_path = r"C:\Users\Portal\Documents\Isensee\nnUNet\nnunet\Lib_resampling_training_mask"
-    print(folder_with_preprocessed_data)
-    dataset = load_dataset(folder_with_preprocessed_data)
-
-    splits_file = os.path.join('splits/Lib/val/splits_final.pkl')
+    #pkl_path=r"C:\Users\Portal\Documents\Isensee\nnUNet\nnunet\custom_lib_t_4"
     #splits_file = os.path.join(r'splits\Lib\val\splits_final.pkl')
+
+    dataset = load_dataset(folder_with_preprocessed_data)
 
     print("Using splits from existing split file:", splits_file)
     splits = load_pickle(splits_file)
@@ -491,23 +495,23 @@ if __name__ == "__main__":
     
     cropper_config = read_config(os.path.join(Path.cwd(), 'adversarial_acdc.yaml'), False, False)
 
-    cropping_conv_layer = ConvBlocks2DGroup
-    cropping_network = build_2d_model(cropper_config, conv_layer=cropping_conv_layer, norm=getattr(torch.nn, cropper_config['norm']), log_function=None, image_size=image_size, window_size=window_size, middle=False, num_classes=4, processor=None)
-    cropping_network.load_state_dict(torch.load(os.path.join(cropper_weights_folder_path, 'model_final_checkpoint.model'))['state_dict'], strict=True)
-    cropping_network.eval()
-    cropping_network.do_ds = False
-
-    processor = Processor2(crop_size=crop_size, image_size=image_size, cropping_network=cropping_network)
+    #cropping_conv_layer = ConvBlocks2DGroup
+    #cropping_network = build_2d_model(cropper_config, conv_layer=cropping_conv_layer, norm=getattr(torch.nn, cropper_config['norm']), log_function=None, image_size=image_size, window_size=window_size, middle=False, num_classes=4, processor=None)
+    #cropping_network.load_state_dict(torch.load(os.path.join(cropper_weights_folder_path, 'model_final_checkpoint.model'))['state_dict'], strict=True)
+    #cropping_network.eval()
+    #cropping_network.do_ds = False
+#
+    #processor = Processor2(crop_size=crop_size, image_size=image_size, cropping_network=cropping_network)
 
     patch_size = [384, 384]
     video_length = 2
 
-    validation_data_loader = DataLoaderPreprocessed(dataset_val, patch_size, patch_size, 1, do_data_aug=False, video_length=2,
-                                    crop_size=crop_size, processor=processor, is_val=True, distance_map_power=1, data_path=data_path, also_start_es=False, oversample_foreground_percent=0.33,
+    validation_data_loader = DataLoaderPreprocessed(dataset_val, patch_size, patch_size, 1, do_data_aug=False, video_length=2, point_loss=False, binary_distance_input=False, binary_distance_loss=False, pkl_path=pkl_path,
+                                    crop_size=crop_size, processor=None, is_val=True, distance_map_power=1, data_path=data_path, start_es=False, oversample_foreground_percent=0.33,
                                     pad_mode="constant", pad_sides=None, memmap_mode='r')
 
-    training_data_loader = DataLoaderPreprocessed(dataset_tr, [451, 451], patch_size, args.bs, do_data_aug=True, video_length=2,
-                                            crop_size=crop_size, processor=processor, is_val=False, distance_map_power=1, data_path=data_path, also_start_es=False, oversample_foreground_percent=0.33,
+    training_data_loader = DataLoaderPreprocessed(dataset_tr, [451, 451], patch_size, args.bs, do_data_aug=True, video_length=2, point_loss=False, binary_distance_input=False, binary_distance_loss=False, pkl_path=pkl_path,
+                                            crop_size=crop_size, processor=None, is_val=False, distance_map_power=1, data_path=data_path, start_es=False, oversample_foreground_percent=0.33,
                                             pad_mode="constant", pad_sides=None, memmap_mode='r')
 
     # loading the data
@@ -536,11 +540,11 @@ if __name__ == "__main__":
     
     # tensorboardX configuration
     if args.losstype == 'bmreg':
-        model_name = 'model_{}_{}_nup_{}_bs_{}_epoch_{}_lr_{}_lmbd_{}.pth'.format('Lib', str(args.losstype), str(args.nup), str(args.bs), str(args.epoch), str(args.lr), str(args.lmbd))
+        model_name = 'model_{}_{}_nup_{}_bs_{}_epoch_{}_lr_{}_lmbd_{}.pth'.format('Lib', str(args.losstype), str(args.nup), str(args.bs), str(args.epoch), str(args.lr), str(lmbd))
     elif args.losstype == 'bmreg_seg' or args.losstype == 'bmreg_ceseg':
-        model_name = 'model_{}_{}_nup_{}_bs_{}_epoch_{}_lr_{}_lmbd_{}_gamma_{}.pth'.format('Lib', str(args.losstype), str(args.nup), str(args.bs), str(args.epoch), str(args.lr), str(args.lmbd), str(args.gamma))
+        model_name = 'model_{}_{}_nup_{}_bs_{}_epoch_{}_lr_{}_lmbd_{}_gamma_{}.pth'.format('Lib', str(args.losstype), str(args.nup), str(args.bs), str(args.epoch), str(args.lr), str(lmbd), str(gamma))
     else:
-        model_name = 'model_{}_{}_bs_{}_epoch_{}_lr_{}_lmbd_{}.pth'.format('Lib', str(args.losstype), str(args.bs), str(args.epoch), str(args.lr), str(args.lmbd))
+        model_name = 'model_{}_{}_bs_{}_epoch_{}_lr_{}_lmbd_{}.pth'.format('Lib', str(args.losstype), str(args.bs), str(args.epoch), str(args.lr), str(lmbd))
     
 
     log_path_model = os.path.join(args.log_path, model_name.split('.pth')[0])
@@ -572,7 +576,7 @@ if __name__ == "__main__":
     for epoch in range(args.epoch):
         start = time.time()
         # train(epoch)
-        optimizer, model, VAE_model, train_total_loss_list, train_reg_loss_list, train_seg_loss_list, image_check_dict= train(optimizer, model, VAE_model, train_total_loss_list, train_reg_loss_list, train_seg_loss_list, training_data_loader, args.losstype, 'Lib', args.bs, args.epoch, args.lr, args.lmbd, args.nup, args.gamma, args.save_train_fig, args.log_path, epoch)
+        optimizer, model, VAE_model, train_total_loss_list, train_reg_loss_list, train_seg_loss_list, image_check_dict= train(optimizer, model, VAE_model, train_total_loss_list, train_reg_loss_list, train_seg_loss_list, training_data_loader, args.losstype, 'Lib', args.bs, args.epoch, args.lr, lmbd, args.nup, gamma, args.save_train_fig, args.log_path, epoch)
         end = time.time()
         print("training took {:.8f}".format(end-start))
 
@@ -583,7 +587,7 @@ if __name__ == "__main__":
             writer.add_scalar('loss/train_seg_loss', train_seg_loss_list[epoch], epoch)
 
         start = time.time()
-        valid_total_loss_list, valid_reg_loss_list, valid_seg_loss_list = validation(model_name, valid_total_loss_list, valid_reg_loss_list, valid_seg_loss_list, validation_data_loader, model, VAE_model, args.losstype, 'Lib',  args.bs, args.epoch, args.lr, args.lmbd, args.nup, args.gamma, args.save_train_fig, save_model_path, args.log_path)
+        valid_total_loss_list, valid_reg_loss_list, valid_seg_loss_list = validation(model_name, valid_total_loss_list, valid_reg_loss_list, valid_seg_loss_list, validation_data_loader, model, VAE_model, args.losstype, 'Lib',  args.bs, args.epoch, args.lr, lmbd, args.nup, gamma, args.save_train_fig, save_model_path, args.log_path)
         end = time.time()
         print("testing took {:.8f}".format(end-start))
 
